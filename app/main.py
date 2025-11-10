@@ -112,3 +112,18 @@ async def daily_revenue(date: str):
     q = "SELECT SUM(amount_usd) as total_usd FROM expenses WHERE DATE(timestamp) = :date"
     row = await database.fetch_one(q, values={"date": date})
     return {"date": date, "total_usd": row["total_usd"] or 0.0}
+
+@app.get("/dev/idempotency/{key}")
+async def dev_get_idempotency(key: str):
+    if getattr(app.state, "redis", None):
+        v = await app.state.redis.get(key)
+        return {"key": key, "value": v}
+    return {"key": key, "value": IDEMPOTENT_STORE.get(key)}
+
+@app.delete("/dev/idempotency/{key}")
+async def dev_delete_idempotency(key: str):
+    if getattr(app.state, "redis", None):
+        await app.state.redis.delete(key)
+        return {"key": key, "deleted": True}
+    IDEMPOTENT_STORE.pop(key, None)
+    return {"key": key, "deleted": True}

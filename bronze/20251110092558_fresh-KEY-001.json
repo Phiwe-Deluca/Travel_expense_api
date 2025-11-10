@@ -1,0 +1,1 @@
+{"idempotency_key": "fresh-KEY-001", "user_id": "simphiwe", "timestamp": "2025-11-10 09:45:00+00:00", "vendor": "BudgetHotel", "currency": "ZAR", "total": 1500.0, "lines": [{"description": "Room", "amount": 1500.0, "currency": "ZAR"}]}
