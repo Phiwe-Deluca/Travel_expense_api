@@ -1,0 +1,52 @@
+name: CI/CD — Cloud Run
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+
+      - name: Configure Docker auth for GCR
+        run: |
+          gcloud auth configure-docker --quiet
+
+      - name: Build and push container image to Artifact Registry
+        env:
+          IMAGE_LOCATION: ${GCP_REGION:-us-central1}-docker.pkg.dev/${{ secrets.GCP_PROJECT }}/travel-repo/travel-api:${{ github.sha }}
+        run: |
+          IMAGE="$IMAGE_LOCATION"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Deploy to Cloud Run
+        env:
+          IMAGE: ${{ env.IMAGE }}
+        run: |
+          gcloud run deploy travel-api \
+            --image "$IMAGE" \
+            --region "${{ secrets.GCP_REGION }}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars DATABASE_URL=${{ secrets.DATABASE_URL }},REDIS_URL=${{ secrets.REDIS_URL }},ENV=production \
+            --memory 512Mi \
+            --concurrency 80 \
+            --timeout 300
